@@ -1,0 +1,21 @@
+{
+  "name": "twitchclipuploader",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^16.11.6"
+  },
+  "dependencies": {
+    "axios": "^0.24.0",
+    "js-yaml": "^4.1.0",
+    "twitchdl": "^0.0.2",
+    "video-stitch": "^1.7.1"
+  }
+}
