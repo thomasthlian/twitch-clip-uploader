@@ -31,8 +31,8 @@ const numClips = 100;
         "Authorization": `Bearer ${token}`,
         "Client-Id": clientId,
       }
-    } catch (e) {
-      console.log(e);
+    } catch (error) {
+      console.log(`Error in setting secrets.\n${error}`);
     }
   }
 

@@ -1,15 +1,37 @@
 const axios = require('axios');
 const fs = require('fs');
+var fluent_ffmpeg = require("fluent-ffmpeg");
 
 const Clip = require('./clip.js');
 
 const maxVideoDuration = 13.5 * 60;
 
+
+async function concatenateVideo(clips) {
+    console.log(`Beginning to stitch video.`);
+    try {
+        var mergedVideo = fluent_ffmpeg();
+        clips.forEach(function(clip){
+            mergedVideo.addInput(clip.video_path);
+        })
+
+        mergedVideo.mergeToFile('./video.mp4')
+        .on('error', function(error) {
+            console.log(`Error in merging files\n${error}`);
+        })
+        .on('end', function() {
+            console.log("Finished merging videos.");
+        })
+    } catch (error) {
+      console.log(`Error in stitching video\n${error}`)
+    }
+}
+
 /**
  * Fills array with clips from data.
  * @param {Array} data Twitch top clips data.
  */
- async function processClips(data) {
+async function processClips(data) {
     console.log("Starting processClips()");
     try{
       let totalTime = 0.0;
@@ -38,10 +60,13 @@ const maxVideoDuration = 13.5 * 60;
     } catch (error) {
       console.log(`Error in processClips(${data})\n${error}`)
     }
-  }
+}
 
-  async function download(clips) {
+let totalClips = 0;
+
+async function downloadData(clips) {
     console.log("Downloading all clips.");
+    totalClips = 0;
     let d = new Date();
     let day = d.getDay();
 
@@ -49,51 +74,28 @@ const maxVideoDuration = 13.5 * 60;
     if (!fs.existsSync(path)) {
       fs.mkdirSync(path);
     }
-
+    let promises = [];
     for (let i = 0; i < clips.length; i++) {
-      try {
-        const response = await axios.get(clips[i].download_url, {
+        promises.push(download(clips[i], `${path}/${i}.mp4`, clips.length));
+    }
+    await Promise.all(promises).then(() => {
+        console.log("FINISHED DOWNLOADING");
+    });
+}
+
+async function download(clip, path, total) {
+    try {
+        const response = await axios.get(clip.download_url, {
           responseType: 'stream',
         });
-        let videoPath = `${path}/${i}.mp4`;
-        const video = response.data.pipe(fs.createWriteStream(videoPath));
-
-        await new Promise(fulfill => video.on('finish', fulfill));
-        clips[i].setVideoPath(videoPath);
-        console.log(`Finished downloading ${i + 1}/${clips.length}`)
-      } catch (error) {
-        console.log(`Error in downloading video at ${url}\n${error}`);
-        return (false, null);
-      }
-    }
-  }
-
-  async function concatenateVideo(clips) {
-    console.log(`Starting concatenateVideo`);
-    try {
-      var video = fluent_ffmpeg();
-      // clips.forEach(function(clip){
-      //   video = video.addInput(clip.video_path);
-      // })
-      const folder_path = clips[0].video_path.substring(0, clips[0].video_path.length - 5);
-      const video_path = `${folder_path}video.mp4`;
-      console.log("Saving video to " + video_path);
-
-      fluent_ffmpeg({source: clips[0].video_path})
-        .input(clips[1].video_path)
-        .on('end', () => console.log("Completed Merge."))
-        .on('error', (error) => console.log(error))
-        .mergeToFile(video_path);
-
-      // video.mergeToFile(video_path, './tmp/')
-      // .on('error', function(error) {
-      //   console.log(`Error occured during video stitching process.\n${error.message}`);
-      // })
-      // await new Promise(fulfill => video.on('end', fulfill));
-      // return video_path;
+        const video = response.data.pipe(fs.createWriteStream(path));
+        return new Promise(fulfill => video.on('finish', () => {
+            console.log(`Finished downloading ${++totalClips}/${total}`);
+            fulfill;
+        }));
     } catch (error) {
-      console.log(`Error in stitching video\n${error}`)
+        console.log(`Error in downloading video at ${path}\n${error}`);
     }
-  }
+}
 
-  module.exports = { processClips, download, concatenateVideo };
+  module.exports = { processClips, downloadData, concatenateVideo };

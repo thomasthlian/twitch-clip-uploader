@@ -1,4 +1,4 @@
-async function findTime(time) {
+function findTime(time) {
     let videoSearchDate = new Date(Date.now() - time * 1000).toISOString();
     return videoSearchDate.toString();
 }
