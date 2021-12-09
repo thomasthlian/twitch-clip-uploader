@@ -13,8 +13,12 @@
     "@types/node": "^16.11.6"
   },
   "dependencies": {
+    "@ffprobe-installer/ffprobe": "^1.2.0",
     "axios": "^0.24.0",
+    "ffmpeg": "^0.0.4",
+    "fluent-ffmpeg": "^2.1.2",
     "js-yaml": "^4.1.0",
+    "node-ffprobe": "^3.0.0",
     "twitchdl": "^0.0.2",
     "video-stitch": "^1.7.1"
   }

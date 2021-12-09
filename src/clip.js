@@ -1,4 +1,5 @@
 class Clip {
+    video_path = ""
     // Change url to embeded url for easier downloading.
     constructor(thumbnail_url, broadcaster_name, title, view_count, duration, download_url, video_path) {
         this.thumbnail_url = thumbnail_url;
@@ -7,7 +8,10 @@ class Clip {
         this.view_count = view_count;
         this.duration = duration;
         this.download_url = download_url;
-        this.video_path = video_path;
+    }
+
+    setVideoPath(path) {
+        this.video_path = path;
     }
 }
 

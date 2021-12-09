@@ -5,7 +5,7 @@ const fs = require('fs');
 const yaml = require('js-yaml');
 const { stream, pipeline } = require('stream');
 const { promisify, getSystemErrorMap } = require('util');
-const videoStitch = require('video-stitch');
+const fluent_ffmpeg = require("fluent-ffmpeg");
 
 const Clip = require('./clip.js');
 
@@ -16,8 +16,6 @@ let clientId = "";
 let clientSecret = "";
 
 const numClips = 100;
-let vidNumber = 0;
-let videoConcat = videoStitch.concat;
 
 const gamesChecked = ["Valorant"]
 
@@ -100,15 +98,9 @@ async function processClips(data) {
        */
       if (currClip.duration < 120.0 && currClip.language == 'en') {
         let download_url = currClip.thumbnail_url.substring(0, currClip.thumbnail_url.indexOf("-preview")) + '.mp4';
-        download(download_url);
-        if (videoInfo[0]) {
-          allClips.push(new Clip(currClip.thumbnail_url, currClip.broadcaster_name, currClip.title,
-            currClip.view_count, currClip.duration, download_url, videoInfo[1]));
-          totalTime += currClip.duration;
-          console.log(totalTime);
-        } else {
-          console.log("Error downloading " + currClip);
-        }
+        allClips.push(new Clip(currClip.thumbnail_url, currClip.broadcaster_name, currClip.title,
+          currClip.view_count, currClip.duration, download_url));
+        totalTime += currClip.duration;
       }
 
       if (totalTime > maxVideoDuration) {
@@ -126,59 +118,67 @@ async function findDayTime() {
   return videoSearchDate.toString();
 }
 
-async function download(url) {
-  console.log(`Downloading video from: ${url}`);
+async function download(clips) {
+  console.log("Downloading all clips.");
   let d = new Date();
   let day = d.getDay();
 
-  try {
-    const response = await axios.get(url, {
-      responseType: 'stream',
-    });
-    let videoPath = `./videos/${++vidNumber}.mp4`;
-    const video = response.data.pipe(fs.createWriteStream(videoPath));
+  const path = `./videos/${day}`
+  if (!fs.existsSync(path)) {
+    fs.mkdirSync(path);
+  }
 
-    video.on('finish', () => {
-      console.log('Successfully downloaded file!');
-      return (true, videoPath);
-    });
-  } catch (error) {
-    console.log(`Error in downloading video at ${url}\n${error}`);
-    return (false, null);
+  for (let i = 0; i < clips.length; i++) {
+    try {
+      const response = await axios.get(clips[i].download_url, {
+        responseType: 'stream',
+      });
+      let videoPath = `${path}/${i}.mp4`;
+      const video = response.data.pipe(fs.createWriteStream(videoPath));
+
+      await new Promise(fulfill => video.on('finish', fulfill));
+      clips[i].setVideoPath(videoPath);
+      console.log(`Finished downloading ${i + 1}/${clips.length}`)
+    } catch (error) {
+      console.log(`Error in downloading video at ${url}\n${error}`);
+      return (false, null);
+    }
   }
 }
 
-async function stitchVideo(clips) {
-  // console.log(`Starting stichVideo(${clips})`);
-  // try {
-  //   let videoClips = [];
-  //   for (let i = 0; i < clips.length; i++) {
-  //     videoClips.push(
-  //       {
-  //         "fileName" : `${i}.mp4`
-  //       });
-  //   }
-  //   videoConcat({
-  //     ffmpeg_path: "./videos",
-  //     overwrite: true
-  //   })
-  //   .clips(videoClips)
-  //   .output("Video")
-  //   .concat()
-  //   .then((outputFile) => {
-  //     console.log('Path to output file: ', outputFile);
-  //     return outputFile;
-  //   });
-  // } catch (error) {
-  //   console.log(`Error in stitchVideo(${clips})\n${error}`);
-  // }
+async function concatenateVideo(clips) {
+  console.log(`Starting concatenateVideo`);
+  try {
+    var video = fluent_ffmpeg();
+    // clips.forEach(function(clip){
+    //   video = video.addInput(clip.video_path);
+    // })
+    const folder_path = clips[0].video_path.substring(0, clips[0].video_path.length - 5);
+    const video_path = `${folder_path}video.mp4`;
+    console.log("Saving video to " + video_path);
+
+    fluent_ffmpeg({source: clips[0].video_path})
+      .input(clips[1].video_path)
+      .on('end', () => console.log("Completed Merge."))
+      .on('error', (error) => console.log(error))
+      .mergeToFile(video_path);
+
+    // video.mergeToFile(video_path, './tmp/')
+    // .on('error', function(error) {
+    //   console.log(`Error occured during video stitching process.\n${error.message}`);
+    // })
+    // await new Promise(fulfill => video.on('end', fulfill));
+    // return video_path;
+  } catch (error) {
+    console.log(`Error in stitching video\n${error}`)
+  }
 }
 
 
 async function setSecrets() {
   try {
     const secrets = await yaml.load(fs.readFileSync('src/secrets.yml', 'utf8'));
-    token = secrets.token
+    token = secrets.token;
     clientId = secrets.clientId;
     clientSecret = secrets.clientSecret;
     headers = {
@@ -200,7 +200,9 @@ async function run() {
       let startTime = (await findDayTime());
       let clips = await getClips(gameId, startTime.toString());
       await processClips(clips);
-      let video = await stitchVideo(allClips);
+      await download(allClips);
+      let video = await concatenateVideo(allClips);
+      console.log(video);
     }
   } catch (error) {
     console.log(`Something went wrong!\n${error}`);
