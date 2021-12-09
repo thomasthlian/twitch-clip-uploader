@@ -1,11 +1,5 @@
 'use strict';
 
-const axios = require('axios');
-const fs = require('fs');
-const { stream, pipeline } = require('stream');
-const { promisify, getSystemErrorMap } = require('util');
-const fluent_ffmpeg = require("fluent-ffmpeg");
-
 const { setSecrets, getGameId, getClips } = require('./twitch.js');
 const { concatenateVideo, download, processClips } = require('./video');
 const { findTime, intervalToSeconds } = require('./time');
