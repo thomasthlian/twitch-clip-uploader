@@ -2,15 +2,27 @@ const axios = require('axios');
 const fs = require('fs');
 const yaml = require('js-yaml');
 
-let token = "";
-let clientId = "";
-let clientSecret = "";
-
 let headers;
+let numClips;
 
 const twitchUri = "https://api.twitch.tv/helix";
 
-const numClips = 100;
+async function setConfig() {
+  try {
+    const secrets = await yaml.load(fs.readFileSync('src/config.yml', 'utf8'));
+    token = secrets.token;
+    clientId = secrets.clientId;
+    clientSecret = secrets.clientSecret;
+    headers = {
+      "Authorization": `Bearer ${token}`,
+      "Client-Id": clientId,
+    }
+    numClips = secrets.numClips;
+    return secrets.games;
+  } catch (error) {
+    console.log(`Error in setting secrets.\n${error}`);
+  }
+}
 
 /**
  * Pass in a specific game name to get it's respective Twitch ID
@@ -20,22 +32,6 @@ const numClips = 100;
  * @param {string} gameName Name of the game to get ID
  * @returns {string} Game id
  */
-
- async function setSecrets() {
-    try {
-      const secrets = await yaml.load(fs.readFileSync('src/secrets.yml', 'utf8'));
-      token = secrets.token;
-      clientId = secrets.clientId;
-      clientSecret = secrets.clientSecret;
-      headers = {
-        "Authorization": `Bearer ${token}`,
-        "Client-Id": clientId,
-      }
-    } catch (error) {
-      console.log(`Error in setting secrets.\n${error}`);
-    }
-  }
-
 async function getGameId(gameName) {
     console.log(`Running getGameId`);
     const params = {
@@ -55,12 +51,13 @@ async function getGameId(gameName) {
   }
 
 
-  /**
-   * Pass in a game id and date and it will return a list of all the clips that fit them.
-   * @param {integer} gameId Game to check
-   * @param {integer} startTime Start time to search in UTC
-   * @returns Data of all clips
-   */
+/**
+ * Pass in a game id and date and it will return a list of all the clips that fit them.
+ * @param {integer} gameId Game to check
+ * @param {integer} startTime Start time to search in UTC
+ * @returns Data of all clips
+ *
+ **/
 async function getClips(gameId, startTime) {
     console.log(`Running getClips`);
     const params = {
@@ -81,4 +78,31 @@ async function getClips(gameId, startTime) {
     }
   }
 
-  module.exports = { setSecrets, getGameId, getClips };
+  async function downloadData(clips) {
+    console.log("Downloading clip data.");
+    totalClips = 0;
+    let d = new Date();
+    let day = d.getDay();
+
+    const path = `./videos/${day}`
+    if (!fs.existsSync(path)) {
+      fs.mkdirSync(path);
+    }
+
+    let promises = [];
+    for (let i = 0; i < clips.length; i++) {
+      const data = axios.get(clips[i].download_url, {
+        responseType: 'stream',
+      });
+
+      promises.push(data);
+    }
+    let videoData;
+    await Promise.all(promises).then(function(data) {
+      console.log("Received all data.");
+      videoData = [data, path];
+    });
+    return videoData;
+}
+
+module.exports = { setConfig, downloadData, getGameId, getClips };

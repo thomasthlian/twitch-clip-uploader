@@ -4,7 +4,7 @@ var fluent_ffmpeg = require("fluent-ffmpeg");
 
 const Clip = require('./clip.js');
 
-const maxVideoDuration = 13.5 * 60;
+const maxVideoDuration = 10 * 60;
 
 
 async function concatenateVideo(clips) {
@@ -52,7 +52,7 @@ async function processClips(data) {
         }
 
         if (totalTime > maxVideoDuration) {
-          console.log("Exceeded Maximum Video Duration");
+          console.log("Exceeded maximum video duration.");
           return allClips;
         }
       }
@@ -64,38 +64,28 @@ async function processClips(data) {
 
 let totalClips = 0;
 
-async function downloadData(clips) {
-    console.log("Downloading all clips.");
-    totalClips = 0;
-    let d = new Date();
-    let day = d.getDay();
+async function downloadVideos(data) {
+  console.log("Started downloading videos.")
+  let [videoData, path] = data;
+  let videos = [];
+  let fulfilledVideos = 0;
 
-    const path = `./videos/${day}`
-    if (!fs.existsSync(path)) {
-      fs.mkdirSync(path);
-    }
-    let promises = [];
-    for (let i = 0; i < clips.length; i++) {
-        promises.push(download(clips[i], `${path}/${i}.mp4`, clips.length));
-    }
-    await Promise.all(promises).then(() => {
-        console.log("FINISHED DOWNLOADING");
-    });
-}
-
-async function download(clip, path, total) {
+  for (let i = 0; i < videoData.length; i++) {
     try {
-        const response = await axios.get(clip.download_url, {
-          responseType: 'stream',
-        });
-        const video = response.data.pipe(fs.createWriteStream(path));
-        return new Promise(fulfill => video.on('finish', () => {
-            console.log(`Finished downloading ${++totalClips}/${total}`);
-            fulfill;
-        }));
+      let videoPath = `${path}/${i + 1}.mp4`;
+      const video = videoData[i].data.pipe(fs.createWriteStream(videoPath));
+      videos.push(new Promise(resolve => {
+        video.on('finish', resolve);
+      }));
+
     } catch (error) {
-        console.log(`Error in downloading video at ${path}\n${error}`);
+      console.log(`Error in downloading video at ${path}\n${error}`);
     }
+  }
+  console.log("Download process started on all videos.");
+  await Promise.all(videos).then(function() {
+    console.log("Finished downloading all videos.");
+  });
 }
 
-  module.exports = { processClips, downloadData, concatenateVideo };
+module.exports = { processClips, downloadVideos, concatenateVideo };

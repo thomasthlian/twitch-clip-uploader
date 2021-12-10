@@ -120,5 +120,5 @@ dist
 # Custom Pieces
 videos
 .mp4
-*/secrets.yml
+*/config.yml
 .vscode
