@@ -6,7 +6,6 @@ const Clip = require('./clip.js');
 
 const maxVideoDuration = 10 * 60;
 
-
 async function concatenateVideo(clips) {
     console.log(`Beginning to stitch video.`);
     try {
@@ -28,8 +27,9 @@ async function concatenateVideo(clips) {
 }
 
 /**
- * Fills array with clips from data.
- * @param {Array} data Twitch top clips data.
+ * Sorts and returns data for clips that fit criteria.
+ * @param {response} data Top clips data to process
+ * @returns Clips that fit criteria
  */
 async function processClips(data) {
     console.log("Starting processClips()");
@@ -43,6 +43,8 @@ async function processClips(data) {
          * Parameters to qualify for clip in video:
          * Less than 2 minutes
          * English
+         *
+         * In the future, maybe make this a config file.
          */
         if (currClip.duration < 120.0 && currClip.language == 'en') {
           let download_url = currClip.thumbnail_url.substring(0, currClip.thumbnail_url.indexOf("-preview")) + '.mp4';
@@ -62,17 +64,20 @@ async function processClips(data) {
     }
 }
 
-let totalClips = 0;
-
-async function downloadVideos(data) {
-  console.log("Started downloading videos.")
+/**
+ * Downloads all the videos in data.
+ * @param {Array[]} data Video data to download
+ * @param {Clip[]} clips Clips that need to update their video path
+ */
+async function downloadVideos(data, clips) {
+  console.log("Started downloading videos.");
   let [videoData, path] = data;
   let videos = [];
-  let fulfilledVideos = 0;
 
   for (let i = 0; i < videoData.length; i++) {
     try {
       let videoPath = `${path}/${i + 1}.mp4`;
+      clips[i].setVideoPath(videoPath);
       const video = videoData[i].data.pipe(fs.createWriteStream(videoPath));
       videos.push(new Promise(resolve => {
         video.on('finish', resolve);

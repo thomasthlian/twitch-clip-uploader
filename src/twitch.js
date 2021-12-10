@@ -7,6 +7,10 @@ let numClips;
 
 const twitchUri = "https://api.twitch.tv/helix";
 
+/**
+ * Reads the config.yml file and sets secrets and settings.
+ * @returns {String[]} List of games to create videos for
+ */
 async function setConfig() {
   try {
     const secrets = await yaml.load(fs.readFileSync('src/config.yml', 'utf8'));
@@ -52,11 +56,11 @@ async function getGameId(gameName) {
 
 
 /**
- * Pass in a game id and date and it will return a list of all the clips that fit them.
+ * Pass in a game id and date and
+ * returns a list of all the clips that match.
  * @param {integer} gameId Game to check
  * @param {integer} startTime Start time to search in UTC
  * @returns Data of all clips
- *
  **/
 async function getClips(gameId, startTime) {
     console.log(`Running getClips`);
@@ -78,31 +82,43 @@ async function getClips(gameId, startTime) {
     }
   }
 
-  async function downloadData(clips) {
-    console.log("Downloading clip data.");
-    totalClips = 0;
-    let d = new Date();
-    let day = d.getDay();
+/**
+ * Gets and returns video data from array of clips.
+ * @param {Clip[]} clips Clip array to get data from
+ * @returns Array containing video data from all clips
+ */
+async function getData(clips) {
+  console.log("Downloading clip data.");
 
-    const path = `./videos/${day}`
-    if (!fs.existsSync(path)) {
-      fs.mkdirSync(path);
-    }
+  let d = new Date();
+  let day = d.getDay();
 
-    let promises = [];
-    for (let i = 0; i < clips.length; i++) {
+  const path = `./videos/${day}`;
+  if (!fs.existsSync(path)) {
+    fs.mkdirSync(path);
+  }
+
+  let promises = [];
+
+  for (let i = 0; i < clips.length; i++) {
+    try {
       const data = axios.get(clips[i].download_url, {
         responseType: 'stream',
       });
 
       promises.push(data);
+    } catch (error) {
+      console.log(`Error in getting data for clip #${i}.\n${error}`);
     }
-    let videoData;
-    await Promise.all(promises).then(function(data) {
-      console.log("Received all data.");
-      videoData = [data, path];
-    });
-    return videoData;
+  }
+
+  let videoData;
+
+  await Promise.all(promises).then(function(data) {
+    console.log("Received all data.");
+    videoData = [data, path];
+  });
+  return videoData;
 }
 
-module.exports = { setConfig, downloadData, getGameId, getClips };
+module.exports = { setConfig, getData, getGameId, getClips };
