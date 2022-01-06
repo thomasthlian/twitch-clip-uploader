@@ -3,26 +3,71 @@ const fs = require('fs');
 var fluent_ffmpeg = require("fluent-ffmpeg");
 
 const Clip = require('./clip.js');
+const ffmpeg = require('ffmpeg');
 
 const maxVideoDuration = 10 * 60;
 
-async function concatenateVideo(clips) {
-    console.log(`Beginning to stitch video.`);
+/**
+ * Resizes clips and outputs resized clips to path.
+ * @param {String} path Output for resized clips
+ * @param {Clips[]} clips Array of clips to resize
+ */
+async function resizeVideo(path, clips) {
+  console.log(`Resizing videos.`);
+  try {
+    let promises = [];
+
+    clips.forEach(function(clip){
+      var croppedVideo = fluent_ffmpeg();
+      let resizedName = `${path}/${promises.length + 1} Resized.mp4`;
+      croppedVideo.input(clip.video_path).size("1920x1080").autopad(); // TODO: Make this size adjustable from config.
+      croppedVideo.output(resizedName)
+      .on("error", function (err) {
+        console.log(`Problem performing ffmpeg function\n${err}`);
+      })
+      .run();
+      clip.setVideoPath(resizedName);
+      promises.push(new Promise(resolve => {
+        croppedVideo.on("end", resolve);
+      }))
+    });
+    await Promise.all(promises).then(function() {
+      console.log("Resized all videos.");
+    })
+  } catch (error) {
+    console.log(`Error in resizing videos ${error}`);
+  }
+}
+
+/**
+ * Merges clips to one video at given path.
+ * @param {String} path Output location for video
+ * @param {Clips[]} clips Clips to merge
+ */
+async function concatenateVideo(path, clips) {
+    console.log(`Beginning to concatenate video.`);
     try {
         var mergedVideo = fluent_ffmpeg();
+
         clips.forEach(function(clip){
             mergedVideo.addInput(clip.video_path);
-        })
+            console.log(`Added ${clip.video_path}`);
+        });
 
-        mergedVideo.mergeToFile('./video.mp4')
-        .on('error', function(error) {
+        let videoPath = `${path}/Video.mp4`;
+
+        mergedVideo.mergeToFile(videoPath).on('start', function() {
+          console.log(`Beginning to merge videos.`);
+        }).on('progress', function(progress) {
+          console.log(progress.percent);
+        }).on('error', function(error) {
             console.log(`Error in merging files\n${error}`);
-        })
-        .on('end', function() {
+        }).on('end', function() {
             console.log("Finished merging videos.");
+            return videoPath;
         })
     } catch (error) {
-      console.log(`Error in stitching video\n${error}`)
+      console.log(`Error in concatenate video\n${error}`);
     }
 }
 
@@ -32,7 +77,7 @@ async function concatenateVideo(clips) {
  * @returns Clips that fit criteria
  */
 async function processClips(data) {
-    console.log("Starting processClips()");
+    console.log("Selecting clips.");
     try{
       let totalTime = 0.0;
       let allClips = [];
@@ -46,7 +91,7 @@ async function processClips(data) {
          *
          * In the future, maybe make this a config file.
          */
-        if (currClip.duration < 120.0 && currClip.language == 'en') {
+        if (15.0 < currClip.duration < 60.0 && currClip.language == 'en') {
           let download_url = currClip.thumbnail_url.substring(0, currClip.thumbnail_url.indexOf("-preview")) + '.mp4';
           allClips.push(new Clip(currClip.thumbnail_url, currClip.broadcaster_name, currClip.title,
             currClip.view_count, currClip.duration, download_url));
@@ -91,6 +136,7 @@ async function downloadVideos(data, clips) {
   await Promise.all(videos).then(function() {
     console.log("Finished downloading all videos.");
   });
+  return path;
 }
 
-module.exports = { processClips, downloadVideos, concatenateVideo };
+module.exports = { processClips, downloadVideos, concatenateVideo, resizeVideo };

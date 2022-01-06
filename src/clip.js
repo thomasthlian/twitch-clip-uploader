@@ -1,5 +1,5 @@
 class Clip {
-    video_path = ""
+    video_path = "";
 
     constructor(thumbnail_url, broadcaster_name, title, view_count, duration, download_url) {
         this.thumbnail_url = thumbnail_url;

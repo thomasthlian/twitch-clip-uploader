@@ -2,6 +2,7 @@ const axios = require('axios');
 const fs = require('fs');
 const yaml = require('js-yaml');
 
+let clientSecret;
 let headers;
 let numClips;
 
@@ -11,21 +12,18 @@ const twitchUri = "https://api.twitch.tv/helix";
  * Reads the config.yml file and sets secrets and settings.
  * @returns {String[]} List of games to create videos for
  */
-async function setConfig() {
+async function setSecrets(secrets) {
   try {
-    const secrets = await yaml.load(fs.readFileSync('src/config.yml', 'utf8'));
-    token = secrets.token;
-    clientId = secrets.clientId;
-    clientSecret = secrets.clientSecret;
-    headers = {
-      "Authorization": `Bearer ${token}`,
-      "Client-Id": clientId,
-    }
-    numClips = secrets.numClips;
-    return secrets.games;
+    clientSecret = secrets[0];
+    headers = secrets[1];
+    numClips = secrets[2];
   } catch (error) {
     console.log(`Error in setting secrets.\n${error}`);
   }
+}
+
+async function getToken(params) {
+
 }
 
 /**
@@ -37,7 +35,7 @@ async function setConfig() {
  * @returns {string} Game id
  */
 async function getGameId(gameName) {
-    console.log(`Running getGameId`);
+    console.log(`Getting Game Id of ${gameName}.`);
     const params = {
       "name": gameName,
     }
@@ -58,12 +56,12 @@ async function getGameId(gameName) {
 /**
  * Pass in a game id and date and
  * returns a list of all the clips that match.
- * @param {integer} gameId Game to check
- * @param {integer} startTime Start time to search in UTC
+ * @param {int} gameId Game to check
+ * @param {int} startTime Start time to search in UTC
  * @returns Data of all clips
  **/
 async function getClips(gameId, startTime) {
-    console.log(`Running getClips`);
+    console.log(`Getting Clips from Twitch.`);
     const params = {
       "game_id": gameId,
       "started_at": startTime,
@@ -89,13 +87,17 @@ async function getClips(gameId, startTime) {
  */
 async function getData(clips) {
   console.log("Downloading clip data.");
+  let date = new Date();
+  let month = date.getMonth();
+  let day = date.getDate();
 
-  let d = new Date();
-  let day = d.getDay();
-
-  const path = `./videos/${day}`;
+  const path = `./src/videos/${month + 1}`; // TODO: Potentially change to String format
   if (!fs.existsSync(path)) {
     fs.mkdirSync(path);
+  }
+
+  if (!fs.existsSync(`${path}/${day}`)) {
+    fs.mkdirSync(`${path}/${day}`);
   }
 
   let promises = [];
@@ -116,9 +118,9 @@ async function getData(clips) {
 
   await Promise.all(promises).then(function(data) {
     console.log("Received all data.");
-    videoData = [data, path];
+    videoData = [data, `${path}/${day}`];
   });
   return videoData;
 }
 
-module.exports = { setConfig, getData, getGameId, getClips };
+module.exports = { setSecrets, getData, getGameId, getClips };
