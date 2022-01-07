@@ -1,18 +1,22 @@
-const axios = require('axios');
 const fs = require('fs');
-var fluent_ffmpeg = require("fluent-ffmpeg");
+const fluent_ffmpeg = require("fluent-ffmpeg");
 
 const Clip = require('./clip.js');
-const ffmpeg = require('ffmpeg');
 
 const maxVideoDuration = 10 * 60;
+
+let resolution;
+
+async function setVideoInfo(info) {
+  resolution = info["Video Resolution"];
+}
 
 /**
  * Resizes clips and outputs resized clips to path.
  * @param {String} path Output for resized clips
  * @param {Clips[]} clips Array of clips to resize
  */
-async function resizeVideo(path, clips) {
+async function resizeClips(path, clips) {
   console.log(`Resizing videos.`);
   try {
     let promises = [];
@@ -20,7 +24,9 @@ async function resizeVideo(path, clips) {
     clips.forEach(function(clip){
       var croppedVideo = fluent_ffmpeg();
       let resizedName = `${path}/${promises.length + 1} Resized.mp4`;
-      croppedVideo.input(clip.video_path).size("1920x1080").autopad(); // TODO: Make this size adjustable from config.
+      croppedVideo.input(clip.video_path)
+      .size(resolution)
+      .applyAutopadding(true, 'black');
       croppedVideo.output(resizedName)
       .on("error", function (err) {
         console.log(`Problem performing ffmpeg function\n${err}`);
@@ -59,7 +65,7 @@ async function concatenateVideo(path, clips) {
         mergedVideo.mergeToFile(videoPath).on('start', function() {
           console.log(`Beginning to merge videos.`);
         }).on('progress', function(progress) {
-          console.log(progress.percent);
+          console.log(progress.timemark);
         }).on('error', function(error) {
             console.log(`Error in merging files\n${error}`);
         }).on('end', function() {
@@ -114,16 +120,15 @@ async function processClips(data) {
  * @param {Array[]} data Video data to download
  * @param {Clip[]} clips Clips that need to update their video path
  */
-async function downloadVideos(data, clips) {
-  console.log("Started downloading videos.");
-  let [videoData, path] = data;
+async function downloadVideos(data, clips, path) {
+  console.log(`Started downloading videos to ${path}`);
   let videos = [];
 
-  for (let i = 0; i < videoData.length; i++) {
+  for (let i = 0; i < data.length; i++) {
     try {
       let videoPath = `${path}/${i + 1}.mp4`;
       clips[i].setVideoPath(videoPath);
-      const video = videoData[i].data.pipe(fs.createWriteStream(videoPath));
+      const video = data[i].data.pipe(fs.createWriteStream(videoPath));
       videos.push(new Promise(resolve => {
         video.on('finish', resolve);
       }));
@@ -139,4 +144,4 @@ async function downloadVideos(data, clips) {
   return path;
 }
 
-module.exports = { processClips, downloadVideos, concatenateVideo, resizeVideo };
+module.exports = { setVideoInfo, processClips, downloadVideos, concatenateVideo, resizeClips };

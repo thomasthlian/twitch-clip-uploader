@@ -7,7 +7,7 @@ const yaml = require('js-yaml');
  * @param {integer} time How many seconds ago to find the ISO time for
  * @returns {integer} ISO time of @time seconds ago.
  */
-export function findTime(time) {
+function findTime(time) {
     let videoSearchDate = new Date(Date.now() - time * 1000).toISOString();
     return videoSearchDate.toString();
 }
@@ -22,7 +22,7 @@ export function findTime(time) {
  * @param {String} interval interval to change into seconds
  * @returns The amount of seconds in the interval
  */
-export function intervalToSeconds(interval) {
+function intervalToSeconds(interval) {
     interval = interval.toLowerCase();
     if (interval == "minute") {
         return 60;
@@ -42,20 +42,52 @@ export function intervalToSeconds(interval) {
  * Take all information from config.yml file.
  * @returns Array containing config information
  */
-export async function getConfigInfo() {
+async function getConfigInfo() {
     try {
-      const config = await yaml.load(fs.readFileSync('src/config.yml', 'utf8'));
+      const doc = yaml.load(fs.readFileSync('src/config.yml', 'utf8'));
 
       const headers = {
-        "Authorization": `Bearer ${config.token}`,
-        "Client-Id": config.clientId,
+        "Authorization": `Bearer ${doc.token}`,
+        "Client-Id": doc.clientId,
       }
 
       return [
-          [config.games, config.broadcasters],
-          [config.clientSecret, headers, config.numClips, config.resolution]
+          {"Games": doc.games, "Broadcasters": doc.broadcasters},
+          {"Client-Secret": doc.clientSecret, "Headers": headers, "Number of Clips": doc["number of clips"]},
+          {"Video Resolution": doc.resolution},
         ];
     } catch (error) {
       console.log(`Error in retrieving data from config.yml.\n${error}`);
     }
 }
+
+async function createPath(folderName) {
+    let date = new Date();
+    let month = date.getMonth();
+    let day = date.getDate();
+
+    let path = `./src/videos/${month + 1}`; // TODO: Potentially change to String format
+    if (!fs.existsSync(path)) {
+        fs.mkdirSync(path);
+    }
+    path += `/${day}`;
+    if (!fs.existsSync(path)) {
+        fs.mkdirSync(path);
+    }
+    try {
+        if (!fs.existsSync(`${path}/${folderName}`)) {
+            fs.mkdirSync(`${path}/${folderName}`);
+        }
+        path += `/${folderName}`;
+    } catch (error) {
+        let i = 0;
+        while (fs.existsSync(`${path}/undefined-${i}`)) {
+            i++;
+        }
+        path += `/undefined-${i}`;
+        fs.mkdirSync(path);
+    }
+    return path;
+}
+
+module.exports = { createPath, findTime, intervalToSeconds, getConfigInfo };

@@ -7,6 +7,7 @@ let headers;
 let numClips;
 
 const twitchUri = "https://api.twitch.tv/helix";
+const oauthTwitchUri = "https://id.twitch.tv/oauth2";
 
 /**
  * Reads the config.yml file and sets secrets and settings.
@@ -14,16 +15,47 @@ const twitchUri = "https://api.twitch.tv/helix";
  */
 async function setSecrets(secrets) {
   try {
-    clientSecret = secrets[0];
-    headers = secrets[1];
-    numClips = secrets[2];
+    clientSecret = secrets["Client-Secret"];
+    headers = secrets["Headers"];
+    numClips = secrets["Number of Clips"];
   } catch (error) {
     console.log(`Error in setting secrets.\n${error}`);
   }
 }
 
-async function getToken(params) {
+async function tokenIsValid() {
+  try {
+    console.log(`Checking if token is valid.`)
+    await axios.get(`${oauthTwitchUri}/validate`, {
+      headers: headers,
+    })
+    console.log(`Token is valid.`)
+    return true;
+  } catch (error) {
+    console.log(`Token is not valid.`);
+    return false;
+  }
+}
 
+async function generateToken() {
+  try {
+    console.log(`Generating new token.`)
+    const response = await axios.post(`${oauthTwitchUri}/token?client_id=${headers['Client-Id']}&client_secret=${clientSecret}&grant_type=client_credentials`);
+    headers['Authorization'] = `Bearer ${response.data.access_token}`;
+
+    let doc = yaml.load(fs.readFileSync('src/config.yml', 'utf8'));
+    doc.token = response.data.access_token;
+    fs.writeFile('src/config.yml', yaml.dump(doc), (error) => {
+      if (error) {
+        console.log(`Error in setting token into config.yml file.`);
+      } else {
+        console.log(`Set new token.`);
+      }
+    });
+
+  } catch (error) {
+    console.log(`Error in getting new token\n${error}`);
+  }
 }
 
 /**
@@ -35,22 +67,40 @@ async function getToken(params) {
  * @returns {string} Game id
  */
 async function getGameId(gameName) {
-    console.log(`Getting Game Id of ${gameName}.`);
-    const params = {
-      "name": gameName,
-    }
-
-    try {
-      const response = await axios.get(`${twitchUri}/games`, {
-        headers: headers,
-        params: params,
-      });
-
-     return response.data.data[0].id;
-    } catch (error) {
-      console.log(`Error in getGameId(${gameName}):\n${error}`);
-    }
+  console.log(`Getting Game Id of ${gameName}.`);
+  const params = {
+    "name": gameName,
   }
+
+  try {
+    const response = await axios.get(`${twitchUri}/games`, {
+      headers: headers,
+      params: params,
+    });
+
+    return response.data.data[0].id;
+  } catch (error) {
+    console.log(`Error in getting Game Id from ${gameName}:\n${error}`);
+  }
+}
+
+async function getUserId(displayName) {
+  console.log(`Getting User Id of ${displayName}.`);
+  const params = {
+    "login": displayName,
+  }
+
+  try {
+    const response = await axios.get(`${twitchUri}/users`, {
+      headers: headers,
+      params: params,
+    });
+
+    return response.data.data[0].id;
+  } catch (error) {
+    console.log(`Error in getting User Id from ${displayName}:\n${error}`);
+  }
+}
 
 
 /**
@@ -60,12 +110,18 @@ async function getGameId(gameName) {
  * @param {int} startTime Start time to search in UTC
  * @returns Data of all clips
  **/
-async function getClips(gameId, startTime) {
+async function getClips(id, startTime, type) {
     console.log(`Getting Clips from Twitch.`);
-    const params = {
-      "game_id": gameId,
+    let params = {
       "started_at": startTime,
       "first": numClips
+    }
+
+    if (type == "game") {
+      params["game_id"] = id;
+    }
+    else if (type == "broadcaster") {
+      params["broadcaster_id"] = id;
     }
 
     try {
@@ -74,9 +130,9 @@ async function getClips(gameId, startTime) {
         params: params,
       });
 
-     return response.data
+     return response.data;
     } catch (error) {
-      console.log(`Error in getClips(${gameId}, ${startTime}):\n${error}`);
+      console.log(`Error in getClips(${id}, ${startTime}):\n${error}`);
     }
   }
 
@@ -87,18 +143,6 @@ async function getClips(gameId, startTime) {
  */
 async function getData(clips) {
   console.log("Downloading clip data.");
-  let date = new Date();
-  let month = date.getMonth();
-  let day = date.getDate();
-
-  const path = `./src/videos/${month + 1}`; // TODO: Potentially change to String format
-  if (!fs.existsSync(path)) {
-    fs.mkdirSync(path);
-  }
-
-  if (!fs.existsSync(`${path}/${day}`)) {
-    fs.mkdirSync(`${path}/${day}`);
-  }
 
   let promises = [];
 
@@ -118,9 +162,9 @@ async function getData(clips) {
 
   await Promise.all(promises).then(function(data) {
     console.log("Received all data.");
-    videoData = [data, `${path}/${day}`];
+    videoData = data;
   });
   return videoData;
 }
 
-module.exports = { setSecrets, getData, getGameId, getClips };
+module.exports = { generateToken, tokenIsValid, setSecrets, getData, getGameId, getUserId, getClips };
