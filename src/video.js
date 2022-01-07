@@ -1,14 +1,14 @@
-const fs = require('fs');
-const fluent_ffmpeg = require("fluent-ffmpeg");
+import fs from 'fs';
+import fluent_ffmpeg from 'fluent-ffmpeg';
 
-const Clip = require('./clip.js');
+import { Clip } from './clip.js';
 
-const maxVideoDuration = 10 * 60;
-
+let maxVideoDuration;
 let resolution;
 
-async function setVideoInfo(info) {
+export async function setVideoInfo(info) {
   resolution = info["Video Resolution"];
+  maxVideoDuration = info["Video Length"] * 60;
 }
 
 /**
@@ -16,7 +16,7 @@ async function setVideoInfo(info) {
  * @param {String} path Output for resized clips
  * @param {Clips[]} clips Array of clips to resize
  */
-async function resizeClips(path, clips) {
+export async function resizeClips(path, clips) {
   console.log(`Resizing videos.`);
   try {
     let promises = [];
@@ -50,7 +50,7 @@ async function resizeClips(path, clips) {
  * @param {String} path Output location for video
  * @param {Clips[]} clips Clips to merge
  */
-async function concatenateVideo(path, clips) {
+export async function concatenateVideo(path, clips) {
     console.log(`Beginning to concatenate video.`);
     try {
         var mergedVideo = fluent_ffmpeg();
@@ -82,7 +82,7 @@ async function concatenateVideo(path, clips) {
  * @param {response} data Top clips data to process
  * @returns Clips that fit criteria
  */
-async function processClips(data) {
+export async function processClips(data) {
     console.log("Selecting clips.");
     try{
       let totalTime = 0.0;
@@ -120,7 +120,7 @@ async function processClips(data) {
  * @param {Array[]} data Video data to download
  * @param {Clip[]} clips Clips that need to update their video path
  */
-async function downloadVideos(data, clips, path) {
+export async function downloadVideos(data, clips, path) {
   console.log(`Started downloading videos to ${path}`);
   let videos = [];
 
@@ -143,5 +143,3 @@ async function downloadVideos(data, clips, path) {
   });
   return path;
 }
-
-module.exports = { setVideoInfo, processClips, downloadVideos, concatenateVideo, resizeClips };
