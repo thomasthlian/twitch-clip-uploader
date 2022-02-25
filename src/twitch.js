@@ -37,7 +37,7 @@ export async function tokenIsValid() {
   }
 }
 
-export async function generateToken() {
+export async function refreshToken() {
   try {
     console.log(`Generating new token.`)
     const response = await axios.post(`${oauthTwitchUri}/token?client_id=${headers['Client-Id']}&client_secret=${clientSecret}&grant_type=client_credentials`);

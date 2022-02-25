@@ -36,6 +36,12 @@ export function intervalToSeconds(interval) {
     if (interval == "week") {
         return 7 * intervalToSeconds("day");
     }
+    if (interval == "month") {
+        return 30 * intervalToSeconds("day");
+    }
+    if (interval == "year") {
+        return 365 * intervalToSeconds("year");
+    }
     return interval;
 }
 

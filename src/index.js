@@ -17,27 +17,31 @@ async function main() {
     await twitchSvc.setSecrets(secrets);
     await videoSvc.setVideoInfo(info);
     if (!await twitchSvc.tokenIsValid()) { // ? Potentially only generate token if there is a 400 error
-      await twitchSvc.generateToken();
+      await twitchSvc.refreshToken();
     }
 
     console.log();
 
     const videos = [];
 
-    for (const game of topics['Games']) {
-      videos.push({
-        topic: game['topic'],
-        period: game['period'],
-        type: "game",
-      });
+    if (topics['Games'] != null) {
+      for (const game of topics['Games']) {
+        videos.push({
+          topic: game['topic'],
+          period: game['period'],
+          type: "game",
+        });
+      }
     }
 
-    for (const broadcaster of topics['Broadcasters']) {
-      videos.push({
-        topic: broadcaster['topic'],
-        period: broadcaster['period'],
-        type: "broadcaster",
-      });
+    if (topics['Broadcasters'] != null) {
+      for (const broadcaster of topics['Broadcasters']) {
+        videos.push({
+          topic: broadcaster['topic'],
+          period: broadcaster['period'],
+          type: "broadcaster",
+        });
+      }
     }
 
     for (const video of videos) {
@@ -61,7 +65,7 @@ async function main() {
       let path = await(utilsSvc.createPath(video['topic']));
       await videoSvc.downloadVideos(data, clips, path);
       await videoSvc.resizeClips(path, clips);
-      let finishedVideo = await videoSvc.concatenateVideo(path, clips);
+      await videoSvc.concatenateVideo(path, clips);
     }
   } catch (error) {
     console.log(`Something went wrong in main function.\n${error}`);
