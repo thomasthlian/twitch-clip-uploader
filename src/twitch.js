@@ -1,6 +1,6 @@
-const axios = require('axios');
-const fs = require('fs');
-const yaml = require('js-yaml');
+import axios from 'axios';
+import fs from 'fs';
+import * as yaml from 'js-yaml';
 
 let clientSecret;
 let headers;
@@ -13,7 +13,7 @@ const oauthTwitchUri = "https://id.twitch.tv/oauth2";
  * Reads the config.yml file and sets secrets and settings.
  * @returns {String[]} List of games to create videos for
  */
-async function setSecrets(secrets) {
+export async function setSecrets(secrets) {
   try {
     clientSecret = secrets["Client-Secret"];
     headers = secrets["Headers"];
@@ -23,7 +23,7 @@ async function setSecrets(secrets) {
   }
 }
 
-async function tokenIsValid() {
+export async function tokenIsValid() {
   try {
     console.log(`Checking if token is valid.`)
     await axios.get(`${oauthTwitchUri}/validate`, {
@@ -37,7 +37,7 @@ async function tokenIsValid() {
   }
 }
 
-async function generateToken() {
+export async function refreshToken() {
   try {
     console.log(`Generating new token.`)
     const response = await axios.post(`${oauthTwitchUri}/token?client_id=${headers['Client-Id']}&client_secret=${clientSecret}&grant_type=client_credentials`);
@@ -66,7 +66,7 @@ async function generateToken() {
  * @param {string} gameName Name of the game to get ID
  * @returns {string} Game id
  */
-async function getGameId(gameName) {
+export async function getGameId(gameName) {
   console.log(`Getting Game Id of ${gameName}.`);
   const params = {
     "name": gameName,
@@ -84,7 +84,7 @@ async function getGameId(gameName) {
   }
 }
 
-async function getUserId(displayName) {
+export async function getUserId(displayName) {
   console.log(`Getting User Id of ${displayName}.`);
   const params = {
     "login": displayName,
@@ -110,7 +110,7 @@ async function getUserId(displayName) {
  * @param {int} startTime Start time to search in UTC
  * @returns Data of all clips
  **/
-async function getClips(id, startTime, type) {
+export async function getClips(id, startTime, type) {
     console.log(`Getting Clips from Twitch.`);
     let params = {
       "started_at": startTime,
@@ -141,7 +141,7 @@ async function getClips(id, startTime, type) {
  * @param {Clip[]} clips Clip array to get data from
  * @returns Array containing video data from all clips
  */
-async function getData(clips) {
+export async function getData(clips) {
   console.log("Downloading clip data.");
 
   let promises = [];
@@ -166,5 +166,3 @@ async function getData(clips) {
   });
   return videoData;
 }
-
-module.exports = { generateToken, tokenIsValid, setSecrets, getData, getGameId, getUserId, getClips };

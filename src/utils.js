@@ -1,5 +1,5 @@
-const fs = require('fs');
-const yaml = require('js-yaml');
+import fs from 'fs';
+import * as yaml from 'js-yaml';
 
 /**
  * Finds the ISO time of @time (in seconds) ago.
@@ -7,7 +7,7 @@ const yaml = require('js-yaml');
  * @param {integer} time How many seconds ago to find the ISO time for
  * @returns {integer} ISO time of @time seconds ago.
  */
-function findTime(time) {
+export function findTime(time) {
     let videoSearchDate = new Date(Date.now() - time * 1000).toISOString();
     return videoSearchDate.toString();
 }
@@ -22,7 +22,7 @@ function findTime(time) {
  * @param {String} interval interval to change into seconds
  * @returns The amount of seconds in the interval
  */
-function intervalToSeconds(interval) {
+export function intervalToSeconds(interval) {
     interval = interval.toLowerCase();
     if (interval == "minute") {
         return 60;
@@ -36,32 +36,39 @@ function intervalToSeconds(interval) {
     if (interval == "week") {
         return 7 * intervalToSeconds("day");
     }
+    if (interval == "month") {
+        return 30 * intervalToSeconds("day");
+    }
+    if (interval == "year") {
+        return 365 * intervalToSeconds("year");
+    }
+    return interval;
 }
 
 /**
  * Take all information from config.yml file.
  * @returns Array containing config information
  */
-async function getConfigInfo() {
+export async function getConfigInfo() {
     try {
       const doc = yaml.load(fs.readFileSync('src/config.yml', 'utf8'));
 
       const headers = {
         "Authorization": `Bearer ${doc.token}`,
-        "Client-Id": doc.clientId,
+        "Client-Id": doc.client_id,
       }
 
       return [
           {"Games": doc.games, "Broadcasters": doc.broadcasters},
-          {"Client-Secret": doc.clientSecret, "Headers": headers, "Number of Clips": doc["number of clips"]},
-          {"Video Resolution": doc.resolution},
+          {"Client-Secret": doc.client_secret, "Headers": headers, "Number of Clips": doc["number_of_clips"]},
+          {"Video Resolution": doc.resolution, "Video Length": doc.video_length},
         ];
     } catch (error) {
       console.log(`Error in retrieving data from config.yml.\n${error}`);
     }
 }
 
-async function createPath(folderName) {
+export async function createPath(folderName) {
     let date = new Date();
     let month = date.getMonth();
     let day = date.getDate();
@@ -89,5 +96,3 @@ async function createPath(folderName) {
     }
     return path;
 }
-
-module.exports = { createPath, findTime, intervalToSeconds, getConfigInfo };

@@ -1,5 +1,5 @@
-class Clip {
-    video_path = "";
+export class Clip {
+    video_path;
 
     constructor(thumbnail_url, broadcaster_name, title, view_count, duration, download_url) {
         this.thumbnail_url = thumbnail_url;
@@ -14,5 +14,3 @@ class Clip {
         this.video_path = path;
     }
 }
-
-module.exports = Clip;

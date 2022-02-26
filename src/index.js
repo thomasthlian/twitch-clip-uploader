@@ -1,11 +1,9 @@
 'use strict';
-const fs = require('fs');
+import fs from 'fs';
 
-const { createPath, getConfigInfo, findTime, intervalToSeconds } = require('./utils');
-const { generateToken, tokenIsValid, getData, setSecrets, getGameId, getClips, getUserId } = require('./twitch');
-const { setVideoInfo, concatenateVideo, downloadVideos, processClips, resizeClips } = require('./video');
-
-// Will be added to config file eventually.
+import * as utilsSvc from './utils.js';
+import * as twitchSvc from './twitch.js';
+import * as videoSvc from './video.js';
 
 /**
  * The main function that calls other functions.
@@ -15,33 +13,36 @@ async function main() {
     fs.mkdirSync("./src/videos/");
   }
   try {
-    const [topics, secrets, info] = await getConfigInfo();
-    await setSecrets(secrets);
-    await setVideoInfo(info);
-    if (!await tokenIsValid()) {
-      await generateToken();
+    const [topics, secrets, info] = await utilsSvc.getConfigInfo();
+    await twitchSvc.setSecrets(secrets);
+    await videoSvc.setVideoInfo(info);
+    if (!await twitchSvc.tokenIsValid()) { // ? Potentially only generate token if there is a 400 error
+      await twitchSvc.refreshToken();
     }
 
     console.log();
 
     const videos = [];
 
-    for (const game of topics['Games']) {
-      videos.push({
-        topic: game['topic'],
-        period: game['period'],
-        type: "game",
-      });
+    if (topics['Games'] != null) {
+      for (const game of topics['Games']) {
+        videos.push({
+          topic: game['topic'],
+          period: game['period'],
+          type: "game",
+        });
+      }
     }
 
-    for (const broadcaster of topics['Broadcasters']) {
-      videos.push({
-        topic: broadcaster['topic'],
-        period: broadcaster['period'],
-        type: "broadcaster",
-      });
+    if (topics['Broadcasters'] != null) {
+      for (const broadcaster of topics['Broadcasters']) {
+        videos.push({
+          topic: broadcaster['topic'],
+          period: broadcaster['period'],
+          type: "broadcaster",
+        });
+      }
     }
-
 
     for (const video of videos) {
       console.log(`Starting video creation of ${video['topic']}\nwith a period of 1 ${video['period']}.`);
@@ -49,23 +50,22 @@ async function main() {
       let id;
 
       if (video['type'] == "game") {
-        id = await(getGameId(video['topic']));
+        id = await(twitchSvc.getGameId(video['topic']));
       }
       else if (video['type'] == "broadcaster") {
-        id = await(getUserId(video['topic']));
+        id = await(twitchSvc.getUserId(video['topic']));
       }
 
-      const interval = intervalToSeconds(video['period']);
-      let startTime = findTime(interval);
+      const interval = utilsSvc.intervalToSeconds(video['period']);
+      let startTime = utilsSvc.findTime(interval);
 
-      let clipData = await getClips(id, startTime.toString(), video['type']);
-      let clips = await processClips(clipData);
-      let data = await getData(clips);
-      let path = await(createPath(video['topic']));
-      await downloadVideos(data, clips, path);
-      await resizeClips(path, clips);
-      let finishedVideo = await concatenateVideo(path, clips);
-      console.log(finishedVideo);
+      let clipData = await twitchSvc.getClips(id, startTime.toString(), video['type']);
+      let clips = await videoSvc.processClips(clipData);
+      let data = await twitchSvc.getData(clips);
+      let path = await(utilsSvc.createPath(video['topic']));
+      await videoSvc.downloadVideos(data, clips, path);
+      await videoSvc.resizeClips(path, clips);
+      await videoSvc.concatenateVideo(path, clips);
     }
   } catch (error) {
     console.log(`Something went wrong in main function.\n${error}`);
